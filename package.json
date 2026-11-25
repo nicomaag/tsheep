@@ -1,0 +1,86 @@
+{
+  "name": "tsheep",
+  "version": "0.3.5",
+  "description": "Keeps Teleport shells open for Claude sessions and shows every command live.",
+  "author": "Nico Maag",
+  "license": "MIT",
+  "private": true,
+  "type": "module",
+  "main": "out/main/index.js",
+  "scripts": {
+    "dev": "electron-vite dev",
+    "build": "electron-vite build",
+    "preview": "electron-vite preview",
+    "start": "electron-vite preview",
+    "typecheck": "tsc --noEmit -p tsconfig.node.json && tsc --noEmit -p tsconfig.web.json",
+    "icons": "electron scripts/build-icons.cjs",
+    "package": "electron-vite build && electron-builder",
+    "package:win": "electron-vite build && electron-builder --win",
+    "package:mac": "electron-vite build && electron-builder --mac"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.32.2",
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "@types/node": "^22.15.0",
+    "@types/react": "^19.1.0",
+    "@types/react-dom": "^19.1.0",
+    "@vitejs/plugin-react": "^5.0.0",
+    "electron": "^45.2.3",
+    "electron-builder": "^26.0.0",
+    "electron-vite": "^6.0.0",
+    "lucide-react": "^1.70.0",
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0",
+    "typescript": "^5.9.0",
+    "vite": "^8.3.6",
+    "zustand": "^5.1.0"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": ["electron", "electron-winstaller"]
+  },
+  "build": {
+    "appId": "de.nicomaag.tsheep",
+    "productName": "tsheep",
+    "copyright": "Nico Maag",
+    "asar": true,
+    "npmRebuild": false,
+    "directories": {
+      "output": "release",
+      "buildResources": "resources"
+    },
+    "files": ["out/**", "package.json"],
+    "extraResources": [
+      {
+        "from": "resources",
+        "to": "resources",
+        "filter": ["*.png", "*.ico"]
+      }
+    ],
+    "win": {
+      "target": [{ "target": "nsis", "arch": ["x64"] }],
+      "icon": "resources/icon.ico",
+      "artifactName": "${productName}-${version}-win-${arch}.${ext}"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "shortcutName": "tsheep",
+      "runAfterFinish": true
+    },
+    "mac": {
+      "target": [{ "target": "dmg", "arch": ["arm64", "x64"] }],
+      "icon": "resources/icon.png",
+      "category": "public.app-category.developer-tools",
+      "hardenedRuntime": false,
+      "identity": null,
+      "artifactName": "${productName}-${version}-mac-${arch}.${ext}"
+    },
+    "linux": {
+      "target": ["AppImage"],
+      "icon": "resources/icon.png",
+      "category": "Development"
+    }
+  }
+}
