@@ -1,9 +1,9 @@
-import { KeyRound, Loader2, Plus, RefreshCw, Search, Server, Settings2, Trash2 } from 'lucide-react'
+import { ArrowRight, KeyRound, Loader2, Plus, RefreshCw, Search, Server, Settings2, Trash2 } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { ENV_KEY, matchNodeRule, nodeShellFor, type TshNode } from '@shared/types'
 import { Badge, TopBar } from '../components/ui'
 import { until } from '../format'
-import { useStore } from '../store'
+import { useSessionList, useStore } from '../store'
 
 /**
  * The mode for one node, right on its row. Saved as a rule with the exact
@@ -23,7 +23,12 @@ function NodeModePicker({ node }: { node: string }) {
   // row stays one line and the select keeps one width for every node.
   const viaRule = !exact && effective ? ` (${effective.mode === 'approve' ? 'always approve' : 'starts free'} via ${effective.pattern})` : ''
   return (
-    <select className={`select node-mode ${exact ? value : effective ? `via-${effective.mode}` : 'default'}`} value={value} onChange={(e) => set(e.target.value)} title="Mode for sessions on this node">
+    <select
+      className={`select node-mode ${exact ? value : effective ? `via-${effective.mode}` : 'default'}`}
+      value={value}
+      onChange={(e) => set(e.target.value)}
+      title="Mode for sessions on this node"
+    >
       <option value="default">default{viaRule}</option>
       <option value="approve">always approve (locked)</option>
       <option value="free">starts free</option>
@@ -102,6 +107,8 @@ function NodeShellPanel({ node }: { node: string }) {
   )
 }
 
+const WAIT = 'Another shell is still connecting. One MFA prompt at a time, or they block each other.'
+
 export function NodesView() {
   const platform = useStore((s) => s.platform)
   const installations = useStore((s) => s.installations)
@@ -122,6 +129,13 @@ export function NodesView() {
 
   const inst = installations.find((i) => i.id === instId) ?? installations[0] ?? null
   const status = inst ? statuses[inst.id] : undefined
+  const sessions = useSessionList()
+  // One MFA prompt at a time: a second tsh ssh while one still waits for its
+  // tap blocks both. Counts shells Claude sessions are opening as well.
+  const pendingShell = sessions.find((s) => s.state === 'connecting')
+  const connecting = opening || Boolean(pendingShell)
+  /** The newest shell on a node that is not closed, to jump to instead of opening another. */
+  const openOn = (node: string) => sessions.find((s) => s.installationId === inst?.id && s.node === node && s.state !== 'closed')
 
   useEffect(() => {
     if (!inst) return
@@ -152,7 +166,12 @@ export function NodesView() {
   const refresh = () => {
     if (!inst) return
     setLoading(true)
-    void window.tsheep.installations.refresh(inst.id).then(() => window.tsheep.installations.nodes(inst.id, true)).then(setNodes).catch((e: Error) => setError(e.message)).finally(() => setLoading(false))
+    void window.tsheep.installations
+      .refresh(inst.id)
+      .then(() => window.tsheep.installations.nodes(inst.id, true))
+      .then(setNodes)
+      .catch((e: Error) => setError(e.message))
+      .finally(() => setLoading(false))
   }
 
   const login = () => {
@@ -162,7 +181,7 @@ export function NodesView() {
   }
 
   const open = async (node: string) => {
-    if (!inst || !user || purpose.trim().length < 8) return
+    if (!inst || !user || connecting || purpose.trim().length < 8) return
     setOpening(true)
     try {
       const session = await window.tsheep.sessions.open({ installationId: inst.id, node, user, purpose: purpose.trim(), mode: settings.defaultMode })
@@ -191,9 +210,7 @@ export function NodesView() {
             <div className="empty card">
               <Server size={20} />
               <h3>No tsh installation registered</h3>
-              <div>
-                Go to Installations and press Discover, or tell your Claude: “register my tsh at C:\…\tsh.exe with TELEPORT_HOME …”.
-              </div>
+              <div>Go to Installations and press Discover, or tell your Claude: “register my tsh at C:\…\tsh.exe with TELEPORT_HOME …”.</div>
               <button type="button" className="btn" style={{ marginTop: 14 }} onClick={() => setView({ kind: 'installations' })}>
                 Open Installations
               </button>
@@ -230,6 +247,17 @@ export function NodesView() {
                     <input className="input" placeholder="Filter nodes by name or label" value={query} onChange={(e) => setQuery(e.target.value)} />
                   </div>
                   {error ? <div className="notice red">{error}</div> : null}
+                  {pendingShell ? (
+                    <div className="notice amber">
+                      <Loader2 size={15} className="spin" />
+                      <span className="grow">
+                        Connecting to {pendingShell.target}, waiting for your MFA approval. Other shells can be opened once this one is connected.
+                      </span>
+                      <button type="button" className="btn sm" onClick={() => void window.tsheep.sessions.close(pendingShell.id)}>
+                        Cancel
+                      </button>
+                    </div>
+                  ) : null}
                   <div className="card node-list">
                     {loading && !nodes ? (
                       <div className="empty">
@@ -238,60 +266,97 @@ export function NodesView() {
                       </div>
                     ) : null}
                     {nodes && filtered.length === 0 ? <div className="empty">No nodes match.</div> : null}
-                    {filtered.map((n) => (
-                      <div key={n.name}>
-                        <div className="node-row">
-                          <Server size={15} className="muted" />
-                          <div className="grow">
-                            <div className="node-name">{n.name}</div>
-                            <div className="node-labels">
-                              {Object.entries(n.labels)
-                                .slice(0, 6)
-                                .map(([k, v]) => (
-                                  <span key={k} className="badge mono">
-                                    {k}={v}
-                                  </span>
-                                ))}
+                    {filtered.map((n) => {
+                      const existing = openOn(n.name)
+                      return (
+                        <div key={n.name}>
+                          <div className="node-row">
+                            <Server size={15} className="muted" />
+                            <div className="grow">
+                              <div className="node-name">{n.name}</div>
+                              <div className="node-labels">
+                                {Object.entries(n.labels)
+                                  .slice(0, 6)
+                                  .map(([k, v]) => (
+                                    <span key={k} className="badge mono">
+                                      {k}={v}
+                                    </span>
+                                  ))}
+                              </div>
                             </div>
+                            <NodeModePicker node={n.name} />
+                            <NodeShellButton node={n.name} open={configuring === n.name} onToggle={() => setConfiguring(configuring === n.name ? null : n.name)} />
+                            {existing && picked !== n.name ? (
+                              <>
+                                <button
+                                  type="button"
+                                  className="btn icon sm ghost"
+                                  onClick={() => setPicked(n.name)}
+                                  disabled={connecting}
+                                  title={connecting ? WAIT : 'Open another shell on this node, e.g. as another login'}
+                                >
+                                  <Plus size={14} />
+                                </button>
+                                <button type="button" className="btn sm" onClick={() => setView({ kind: 'session', id: existing.id })} title={`${existing.target} · ${existing.purpose}`}>
+                                  Go to session <ArrowRight size={13} />
+                                </button>
+                              </>
+                            ) : (
+                              <button
+                                type="button"
+                                className={`btn sm${picked === n.name ? '' : ' primary'}`}
+                                onClick={() => setPicked(picked === n.name ? null : n.name)}
+                                disabled={connecting && picked !== n.name}
+                                title={connecting && picked !== n.name ? WAIT : undefined}
+                              >
+                                {picked === n.name ? 'Cancel' : 'Open shell'}
+                              </button>
+                            )}
                           </div>
-                          <NodeModePicker node={n.name} />
-                          <NodeShellButton node={n.name} open={configuring === n.name} onToggle={() => setConfiguring(configuring === n.name ? null : n.name)} />
-                          <button type="button" className={`btn sm${picked === n.name ? '' : ' primary'}`} onClick={() => setPicked(picked === n.name ? null : n.name)}>
-                            {picked === n.name ? 'Cancel' : 'Open shell'}
-                          </button>
+                          {configuring === n.name ? <NodeShellPanel node={n.name} /> : null}
+                          {picked === n.name ? (
+                            <div className="node-open">
+                              <div className="field">
+                                <label>Login as</label>
+                                <select className="select" value={user} onChange={(e) => setUser(e.target.value)}>
+                                  {(status.logins.length ? status.logins : [user]).map((l) => (
+                                    <option key={l} value={l}>
+                                      {l}
+                                    </option>
+                                  ))}
+                                </select>
+                              </div>
+                              <div className="field">
+                                <label>Purpose (shown on the session)</label>
+                                <input
+                                  className="input"
+                                  placeholder="e.g. Check disk usage on the runtime node"
+                                  value={purpose}
+                                  onChange={(e) => setPurpose(e.target.value)}
+                                  onKeyDown={(e) => e.key === 'Enter' && void open(n.name)}
+                                  autoFocus
+                                />
+                              </div>
+                              <button
+                                type="button"
+                                className="btn primary"
+                                disabled={connecting || purpose.trim().length < 8}
+                                title={connecting && !opening ? WAIT : undefined}
+                                onClick={() => void open(n.name)}
+                              >
+                                {opening ? <Loader2 size={13} className="spin" /> : null} Open
+                              </button>
+                            </div>
+                          ) : null}
                         </div>
-                        {configuring === n.name ? <NodeShellPanel node={n.name} /> : null}
-                        {picked === n.name ? (
-                          <div className="node-open">
-                            <div className="field">
-                              <label>Login as</label>
-                              <select className="select" value={user} onChange={(e) => setUser(e.target.value)}>
-                                {(status.logins.length ? status.logins : [user]).map((l) => (
-                                  <option key={l} value={l}>
-                                    {l}
-                                  </option>
-                                ))}
-                              </select>
-                            </div>
-                            <div className="field">
-                              <label>Purpose (shown on the session)</label>
-                              <input className="input" placeholder="e.g. Check disk usage on the runtime node" value={purpose} onChange={(e) => setPurpose(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && void open(n.name)} autoFocus />
-                            </div>
-                            <button type="button" className="btn primary" disabled={opening || purpose.trim().length < 8} onClick={() => void open(n.name)}>
-                              {opening ? <Loader2 size={13} className="spin" /> : null} Open
-                            </button>
-                          </div>
-                        ) : null}
-                      </div>
-                    ))}
+                      )
+                    })}
                   </div>
                 </>
               ) : (
                 <div className="notice amber">
                   <KeyRound size={15} />
-                  <span>
-                    {inst?.name} has no valid certificate. Press “tsh login”, approve MFA in the browser, and the nodes appear here.
-                  </span>
+                  <span>{inst?.name} has no valid certificate. Press “tsh login”, approve MFA in the browser, and the nodes appear here.</span>
                 </div>
               )}
             </>
