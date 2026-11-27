@@ -211,7 +211,7 @@ async function openSession(initBody: unknown): Promise<StreamableHTTPServerTrans
     }
   }
   // logging: the run heartbeat falls back to log notifications when the client sent no progress token.
-  const server = new McpServer({ name: 'tsheep', version: '0.3.6' }, { capabilities: { logging: {} }, instructions: INSTRUCTIONS })
+  const server = new McpServer({ name: 'tsheep', version: '0.3.7' }, { capabilities: { logging: {} }, instructions: INSTRUCTIONS })
   registerTools(server)
   await server.connect(transport)
   return transport

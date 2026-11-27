@@ -1,6 +1,6 @@
 {
   "name": "tsheep",
-  "version": "0.3.6",
+  "version": "0.3.7",
   "description": "Keeps Teleport shells open for Claude sessions and shows every command live.",
   "author": "Nico Maag",
   "license": "MIT",
