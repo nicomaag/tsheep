@@ -182,6 +182,7 @@ export function NodesView() {
 
   const open = async (node: string) => {
     if (!inst || !user || connecting || purpose.trim().length < 8) return
+    setError(null)
     setOpening(true)
     try {
       const session = await window.tsheep.sessions.open({ installationId: inst.id, node, user, purpose: purpose.trim(), mode: settings.defaultMode })
@@ -189,7 +190,10 @@ export function NodesView() {
       setPurpose('')
       setPicked(null)
     } catch (e) {
-      setError((e as Error).message)
+      // Electron puts "Error invoking remote method …" in front; a connect the
+      // person cancelled themselves is not an error to show.
+      const message = (e as Error).message.replace(/^Error invoking remote method '[^']+': (Error: )?/, '')
+      setError(message.includes('closed in tsheep') ? null : message)
     } finally {
       setOpening(false)
     }
@@ -306,8 +310,8 @@ export function NodesView() {
                                 type="button"
                                 className={`btn sm${picked === n.name ? '' : ' primary'}`}
                                 onClick={() => setPicked(picked === n.name ? null : n.name)}
-                                disabled={connecting && picked !== n.name}
-                                title={connecting && picked !== n.name ? WAIT : undefined}
+                                disabled={connecting}
+                                title={connecting ? WAIT : undefined}
                               >
                                 {picked === n.name ? 'Cancel' : 'Open shell'}
                               </button>

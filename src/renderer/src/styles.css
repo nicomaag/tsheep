@@ -49,73 +49,6 @@
     --purple-soft: rgba(191, 90, 242, 0.2);
     --shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 6px 20px rgba(0, 0, 0, 0.25);
   }
-  ::-webkit-scrollbar-thumb {
-    background: rgba(255, 255, 255, 0.18);
-    background-clip: content-box;
-    border: 3px solid transparent;
-  }
-  .side-item:hover {
-    background: rgba(255, 255, 255, 0.06);
-  }
-  .side-item.active {
-    background: rgba(255, 255, 255, 0.1);
-  }
-  .btn:hover {
-    border-color: rgba(255, 255, 255, 0.26);
-  }
-  .btn:active {
-    background: #303033;
-  }
-  .btn.ghost:hover,
-  .win-btn:hover {
-    background: rgba(255, 255, 255, 0.08);
-  }
-  .tabs {
-    background: rgba(255, 255, 255, 0.07);
-  }
-  .tab.active {
-    background: #3a3a3d;
-  }
-  .badge {
-    background: rgba(255, 255, 255, 0.1);
-  }
-  .badge.green {
-    color: #4cd964;
-  }
-  .badge.amber {
-    color: #ffc266;
-  }
-  .badge.red {
-    color: #ff6b61;
-  }
-  .badge.blue {
-    color: #5ac8fa;
-  }
-  .badge.purple {
-    color: #d28bff;
-  }
-  .notice.amber {
-    color: #ffd08a;
-  }
-  .notice.red {
-    color: #ff8a82;
-  }
-  .notice.blue {
-    color: #8ac4ff;
-  }
-  .entry-status.done {
-    color: #4cd964;
-  }
-  .entry-status.failed,
-  .entry-status.timeout {
-    color: #ff6b61;
-  }
-  .entry-out pre.stderr {
-    color: #ff8a82;
-  }
-  .dot.closed {
-    background: #48484a;
-  }
 }
 
 * {
@@ -1346,5 +1279,77 @@ code,
 @media (max-width: 760px) {
   .history-filters {
     grid-template-columns: 1fr 1fr;
+  }
+}
+
+/* Dark-mode overrides of the rules above. They sit at the end on purpose: at equal
+   specificity the later rule wins, so placed before the base rules they had no effect. */
+@media (prefers-color-scheme: dark) {
+  ::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.18);
+    background-clip: content-box;
+    border: 3px solid transparent;
+  }
+  .side-item:hover {
+    background: rgba(255, 255, 255, 0.06);
+  }
+  .side-item.active {
+    background: rgba(255, 255, 255, 0.1);
+  }
+  .btn:hover {
+    border-color: rgba(255, 255, 255, 0.26);
+  }
+  .btn:active {
+    background: #303033;
+  }
+  .btn.ghost:hover,
+  .win-btn:hover {
+    background: rgba(255, 255, 255, 0.08);
+  }
+  .tabs {
+    background: rgba(255, 255, 255, 0.07);
+  }
+  .tab.active {
+    background: #3a3a3d;
+  }
+  .badge {
+    background: rgba(255, 255, 255, 0.1);
+  }
+  .badge.green {
+    color: #4cd964;
+  }
+  .badge.amber {
+    color: #ffc266;
+  }
+  .badge.red {
+    color: #ff6b61;
+  }
+  .badge.blue {
+    color: #5ac8fa;
+  }
+  .badge.purple {
+    color: #d28bff;
+  }
+  .notice.amber {
+    color: #ffd08a;
+  }
+  .notice.red {
+    color: #ff8a82;
+  }
+  .notice.blue {
+    color: #8ac4ff;
+  }
+  .entry-status.done {
+    color: #4cd964;
+  }
+  .entry-status.failed,
+  .entry-status.timeout {
+    color: #ff6b61;
+  }
+  .entry-out pre.stderr {
+    color: #ff8a82;
+  }
+  .dot.closed {
+    background: #48484a;
   }
 }
